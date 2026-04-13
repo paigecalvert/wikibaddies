@@ -8,5 +8,8 @@ dependencies:
 - name: minio
   repository: https://charts.min.io/
   version: 5.4.0
-digest: sha256:c4ce652e7c6195943017d87d172a8e54b627b70eca138fd1be264a2ca33cf7bb
-generated: "2025-11-17T02:44:25.382943459Z"
+- name: replicated
+  repository: oci://registry.replicated.com/library
+  version: 1.19.1
+digest: sha256:27409733f88d2811198ad0c1740b0b0411c666b2bd117a7e841228a6959ca4ee
+generated: "2026-04-13T14:42:14.749868-06:00"

@@ -61,6 +61,9 @@ dependencies:
   name: minio
   repository: https://charts.min.io/
   version: 5.4.0
+- name: replicated
+  repository: oci://registry.replicated.com/library
+  version: 1.19.1
 description: A Helm chart for the fastest knowledge base for growing teams. Beautiful,
   realtime collaborative, feature packed, and markdown compatible.
 home: https://www.getoutline.com/
