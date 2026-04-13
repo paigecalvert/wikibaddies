@@ -105,7 +105,7 @@ utilsSecretExternalSecret:
   key: "utils-secret"
 
 # -- This is for setting up the url manually. It will be auto generated if not set. Depending to your ingress configuration, it can be automatically generated from ingress domain or service definition.
-url: ""
+url: "http://outline.localhost:3000"
 
 # -- This is for setting up the default language. See translate.getoutline.com for a list of available language codes and their rough percentage translated
 defaultLanguage: en_US
@@ -131,9 +131,9 @@ web:
   # -- This is for setting up the web concurrency.
   concurrency: 1
   # -- This is for setting up the web force https.
-  forceHttps: true
+  forceHttps: false
   # -- This is for setting up the skip ssl verification to allow insecure connections.
-  skipSSLVerification: false
+  skipSSLVerification: true
 
 # -- This is for setting up the logging.
 logging:
@@ -169,7 +169,7 @@ fileStorage:
     # -- This is for setting up the local file storage persistence.
     persistence:
       # -- This is for setting up the local file storage persistence enabled.
-      enabled: false
+      enabled: true
       # -- This is for setting up the local file storage persistence access modes.
       accessModes:
         - ReadWriteOnce
@@ -711,7 +711,7 @@ hostAliases: []
 # -- Bitnami Redis configuration
 redis:
   # -- Enable redis
-  enabled: false
+  enabled: true
   architecture: standalone
 
   image:
@@ -727,7 +727,7 @@ redis:
         redis: 6379
 
     persistence:
-      enabled: false
+      enabled: true
 
 # -- External Redis parameters
 externalRedis:
@@ -759,7 +759,7 @@ database:
 # -- Bitnami PostgreSQL configuration
 postgresql:
   # -- Enable postgresql
-  enabled: false
+  enabled: true
   # -- Enable postgresql architecture.
   architecture: standalone
 
@@ -786,9 +786,9 @@ postgresql:
   # -- This is for setting up the auth.
   auth:
     # -- This is for setting up the auth username.
-    username: ""
+    username: "outline"
     # -- This is for setting up the auth password.
-    password: ""
+    password: "password"
     # -- This is for setting up the auth database.
     database: outline
 
@@ -814,7 +814,7 @@ externalPostgresql:
 # -- Minio configuration
 minio:
   # -- Enable minio
-  enabled: false
+  enabled: true
 
   # -- Minio mode
   mode: standalone
