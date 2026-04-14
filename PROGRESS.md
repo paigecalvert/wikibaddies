@@ -346,3 +346,91 @@ helm template outline ./outline/ \
   --set externalRedis.password=wrong \
   | kubectl preflight -
 ```
+
+---
+
+## Step 16: Embedded Cluster v3 manifests (Rubric tasks 1.1–1.3)
+
+**What:** Created three manifest files in `manifests/` to support Embedded Cluster v3 installs, upgrades, and air-gap.
+
+---
+
+### `embedded-cluster-config.yaml`
+
+```yaml
+apiVersion: embeddedcluster.replicated.com/v1beta1
+kind: Config
+```
+
+**Purpose:** Defines the EC v3 cluster configuration — version, extensions, and optional k0s overrides.
+
+**Design decisions:**
+
+- **ingress-nginx as an extension:** EC extensions install Helm charts before the application, making ingress-nginx available cluster-wide before Outline deploys. This is cleaner than asking customers to install their own ingress controller.
+
+- **NodePort on 80/443:** For VM installs there's no cloud load balancer. NodePort binds directly to the VM's network interface on ports 80 and 443 — the VM's IP is the ingress entry point. No post-install IP discovery needed; the customer already knows their VM's IP before starting.
+
+- **`ReplicatedImageName` template function:** Used for all ingress-nginx image references. This tells EC to rewrite those image refs and include the images in the EC air-gap bundle automatically. Extension images are bundled with EC itself (not the app bundle) — the `builder` key in the HelmChart v2 does not cover them.
+
+- **Networking flow:**
+  ```
+  Internet → VM IP:80/443 → ingress-nginx (NodePort) → Outline service (ClusterIP)
+  ```
+
+---
+
+### `kots-config.yaml`
+
+```yaml
+apiVersion: kots.io/v1beta1
+kind: Config
+```
+
+**Purpose:** Defines the Admin Console config screen shown to customers after installing EC.
+
+**Config groups and items:**
+
+| Group | Item | Type | Notes |
+|---|---|---|---|
+| General | `hostname` | text (required) | The domain/IP customers use to reach Outline. Drives `url` and ingress host. |
+| Database | `postgres_type` | select_one | `embedded_postgres` (default) or `external_postgres` |
+| Database | `external_postgres_*` | text/password | Host, port, database, username, password — shown only when external selected |
+| Cache | `redis_type` | select_one | `embedded_redis` (default) or `external_redis` |
+| Cache | `external_redis_*` | text/password | Host, port, password — shown only when external selected |
+
+**Design decisions:**
+
+- **Single hostname field:** Drives both `url` and `ingress.hosts[0].host`. Customers either point a DNS A record at the VM IP or use `<IP>.nip.io` for testing (no DNS setup required).
+
+- **SMTP omitted for now:** Will be added when tackling auth (task 1.7). The minimum viable config screen needs 3 meaningful capabilities — hostname + postgres + redis covers that.
+
+- **File storage not exposed:** Defaults to `local` for embedded cluster. S3 toggle will be added when tackling external storage (task 1.6).
+
+---
+
+### `kots-helmchart.yaml`
+
+```yaml
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+```
+
+**Purpose:** Tells KOTS how to deploy the Outline Helm chart — maps config screen values to `values.yaml` and ensures all images land in air-gap bundles.
+
+**Design decisions:**
+
+- **`url` uses inline template:** `"http://repl{{ ConfigOption \`hostname\` }}"` — the `http://` prefix is a literal string, the template function is substituted inline. No need for the `print` template function.
+
+- **`ingress.enabled` and `ingress.className` hardcoded:** Always `true` and `nginx` for embedded cluster installs. Not exposed as config options.
+
+- **`service.type: ClusterIP` hardcoded:** The Outline service is internal — ingress-nginx (NodePort) handles all external traffic. `ClusterIP` is correct even on a VM.
+
+- **`fileStorage.mode: local` hardcoded:** Avoids the MinIO presigned URL hostname problem (MinIO needs its own publicly reachable hostname, which adds DNS complexity for single-VM installs). S3 mode will be added as a config option for task 1.6.
+
+- **`optionalValues` for external deps:** Uses `recursiveMerge: true` so external connection details merge into the existing values tree without overwriting sibling keys.
+
+- **`builder` section:** Enables all three embedded dependencies (`postgresql`, `redis`, `minio`) so their images are always included in air-gap bundles regardless of what the customer selects at install time.
+
+- **Air-gap image split:**
+  - EC air-gap bundle: ingress-nginx images (via `ReplicatedImageName` in the EC config)
+  - App air-gap bundle: Outline, PostgreSQL, Redis, MinIO images (via `builder` in HelmChart v2)
