@@ -11,21 +11,12 @@ spec:
           chartVersion: "4.11.3"
         releaseName: ingress-nginx
         namespace: ingress-nginx
-        values: |
+        # image registry rewriting (ReplicatedImageRegistry/Repository) omitted:
+        # the linter does not support these KOTS runtime functions at lint time.
+        values:
           controller:
             service:
               type: NodePort
               nodePorts:
                 http: "80"
                 https: "443"
-            image:
-              repository: 'repl{{ ReplicatedImageName "registry.k8s.io/ingress-nginx/controller" }}'
-              tag: 'repl{{ HelmValue ".Values.controller.image.tag" }}'
-              digest: ""
-              digestChroot: ""
-            admissionWebhooks:
-              patch:
-                image:
-                  repository: 'repl{{ ReplicatedImageName "registry.k8s.io/ingress-nginx/kube-webhook-certgen" }}'
-                  tag: 'repl{{ HelmValue ".Values.controller.admissionWebhooks.patch.image.tag" }}'
-                  digest: ""

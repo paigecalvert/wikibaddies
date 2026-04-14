@@ -28,7 +28,6 @@ spec:
       enabled: repl{{ ConfigOptionEquals "postgres_type" "embedded_postgres" }}
     redis:
       enabled: repl{{ ConfigOptionEquals "redis_type" "embedded_redis" }}
-
   optionalValues:
     - when: "repl{{ ConfigOptionEquals `postgres_type` `external_postgres` }}"
       recursiveMerge: true

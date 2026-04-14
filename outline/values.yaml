@@ -721,8 +721,8 @@ redis:
 
   image:
     # -- This is temporary workaround because of bitnami's deprecation until to completely replace it with our solution.
-    registry: proxy.replicated.com/proxy/outline-feline/index.docker.io
-    repository: bitnamilegacy/redis
+    registry: proxy.replicated.com
+    repository: proxy/outline-feline/index.docker.io/bitnamilegacy/redis
     pullSecrets:
       - enterprise-pull-secret
 
@@ -773,8 +773,8 @@ postgresql:
 
   image:
     # -- This is temporary workaround because of bitnami's deprecation until to completely replace it with our solution.
-    registry: proxy.replicated.com/proxy/outline-feline/index.docker.io
-    repository: bitnamilegacy/postgresql
+    registry: proxy.replicated.com
+    repository: proxy/outline-feline/index.docker.io/bitnamilegacy/postgresql
     pullSecrets:
       - enterprise-pull-secret
 

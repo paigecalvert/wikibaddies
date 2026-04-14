@@ -1,0 +1,73 @@
+apiVersion: troubleshoot.sh/v1beta3
+kind: Preflight
+metadata:
+  name: outline-preflight
+spec:
+  collectors:
+    - clusterResources: {}
+
+  analyzers:
+    - clusterVersion:
+        checkName: Kubernetes Version
+        outcomes:
+          - fail:
+              when: "< 1.23.0"
+              message: |
+                Outline requires Kubernetes 1.23.0 or later. Your cluster does not meet this
+                requirement. Please upgrade your cluster before installing.
+          - pass:
+              message: "Kubernetes version meets the minimum requirement of 1.23.0."
+
+    - nodeResources:
+        checkName: Schedulable Nodes
+        outcomes:
+          - fail:
+              when: "count() < 1"
+              message: |
+                No nodes were found in the cluster. All pods will be unschedulable.
+                Check for node taints, cordoned nodes, or cluster provisioning issues.
+          - pass:
+              when: "count() >= 1"
+              message: "At least one node is available for scheduling."
+
+    - nodeResources:
+        checkName: Node Memory
+        outcomes:
+          - fail:
+              when: "min(memoryCapacity) < 2Gi"
+              message: |
+                At least one node has less than 2Gi of memory. Outline and its embedded
+                dependencies (PostgreSQL, Redis, MinIO) require a minimum of 2Gi per node
+                to schedule successfully. Add more memory or use a larger node type.
+          - warn:
+              when: "min(memoryCapacity) < 4Gi"
+              message: |
+                At least one node has less than 4Gi of memory. Outline and its embedded
+                dependencies run best with 4Gi or more per node. Consider using a larger
+                node type to avoid resource contention.
+          - pass:
+              message: "Node memory meets the recommended requirement of 4Gi."
+
+    - storageClass:
+        checkName: Default Storage Class
+        outcomes:
+          - fail:
+              message: |
+                No default StorageClass was found in the cluster. Outline's embedded
+                PostgreSQL, Redis, and MinIO components require a default StorageClass
+                to provision PersistentVolumes. Install a StorageClass and mark it as
+                default before installing Outline.
+          - pass:
+              message: "Default StorageClass is available."
+
+    - ingressClass:
+        checkName: Ingress Class
+        ingressClassName: nginx
+        outcomes:
+          - fail:
+              message: |
+                IngressClass 'nginx' was not found in the cluster. The embedded cluster
+                installs ingress-nginx automatically — if this check fails, the
+                ingress-nginx extension may not have deployed correctly.
+          - pass:
+              message: "IngressClass 'nginx' is available."
