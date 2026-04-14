@@ -38,6 +38,18 @@ stringData:
                   message: "Kubernetes version meets the minimum requirement of 1.23.0."
 
         - nodeResources:
+            checkName: Schedulable Nodes
+            outcomes:
+              - fail:
+                  when: "count() < 1"
+                  message: |
+                    No nodes were found in the cluster. All pods will be unschedulable.
+                    Check for node taints, cordoned nodes, or cluster provisioning issues.
+              - pass:
+                  when: "count() >= 1"
+                  message: "At least one node is available for scheduling."
+
+        - nodeResources:
             checkName: Node Memory
             outcomes:
               - fail:
@@ -54,6 +66,47 @@ stringData:
                     node type to avoid resource contention.
               - pass:
                   message: "Node memory meets the recommended requirement of 4Gi."
+        {{- if or .Values.postgresql.enabled .Values.redis.enabled .Values.minio.enabled }}
+
+        - storageClass:
+            checkName: Default Storage Class
+            outcomes:
+              - fail:
+                  message: |
+                    No default StorageClass was found in the cluster. Outline's embedded
+                    PostgreSQL, Redis, and MinIO components require a default StorageClass
+                    to provision PersistentVolumes. Install a StorageClass and mark it as
+                    default before installing Outline.
+              - pass:
+                  message: "Default StorageClass is available."
+        {{- end }}
+        {{- if .Values.ingress.enabled }}
+
+        - ingressClass:
+            checkName: Ingress Class
+            {{- if .Values.ingress.className }}
+            ingressClassName: {{ .Values.ingress.className }}
+            {{- end }}
+            outcomes:
+              - fail:
+                  message: |
+                    {{- if .Values.ingress.className }}
+                    IngressClass '{{ .Values.ingress.className }}' was not found in the cluster.
+                    Ensure an ingress controller that provides this class is installed.
+                    {{- else }}
+                    No default IngressClass was found in the cluster. Outline is configured
+                    with ingress enabled. Install an ingress controller (such as ingress-nginx)
+                    and ensure it is set as the default IngressClass, or set ingress.className
+                    to the name of an existing IngressClass.
+                    {{- end }}
+              - pass:
+                  message: |
+                    {{- if .Values.ingress.className }}
+                    IngressClass '{{ .Values.ingress.className }}' is available.
+                    {{- else }}
+                    Default IngressClass is available.
+                    {{- end }}
+        {{- end }}
         {{- if not .Values.postgresql.enabled }}
 
         - postgres:
@@ -65,12 +118,15 @@ stringData:
                   message: |
                     Cannot connect to PostgreSQL at {{ .Values.externalPostgresql.host }}:{{ include "outline.postgresql.port" . }}.
                     Verify that:
-                      - The host is reachable from the cluster
-                      - The username '{{ include "outline.postgresql.username" . }}' has access to the '{{ include "outline.postgresql.database" . }}' database
+                      - The hostname is correct and resolvable from within the cluster
+                      - The username '{{ include "outline.postgresql.username" . }}' exists and has access to the '{{ include "outline.postgresql.database" . }}' database
                       - The password provided in externalPostgresql.password is correct
-                      - The PostgreSQL instance is running and accepting connections on port {{ include "outline.postgresql.port" . }}
+                      - PostgreSQL is running and accepting connections on port {{ include "outline.postgresql.port" . }}
               - pass:
+                  when: "connected == true"
                   message: "Successfully connected to external PostgreSQL at {{ .Values.externalPostgresql.host }}."
+              - warn:
+                  message: "PostgreSQL connectivity returned an unexpected result. Check the preflight collector logs for details."
         {{- end }}
         {{- if not .Values.redis.enabled }}
 
@@ -87,5 +143,8 @@ stringData:
                       - The password provided in externalRedis.password is correct
                       - The Redis instance is running and accepting connections on port {{ include "outline.redis.port" . }}
               - pass:
+                  when: "connected == true"
                   message: "Successfully connected to external Redis at {{ .Values.externalRedis.host }}."
+              - warn:
+                  message: "Redis connectivity returned an unexpected result. Check the preflight collector logs for details."
         {{- end }}

@@ -828,10 +828,10 @@ minio:
   enabled: true
 
   image:
-    repository: proxy.replicated.com/proxy/outline-feline/quay.io/minio/minio
+    repository: proxy.replicated.com/proxy/outline-feline/index.docker.io/minio/minio
 
   mcImage:
-    repository: proxy.replicated.com/proxy/outline-feline/quay.io/minio/mc
+    repository: proxy.replicated.com/proxy/outline-feline/index.docker.io/minio/mc
 
   imagePullSecrets:
     - name: enterprise-pull-secret
