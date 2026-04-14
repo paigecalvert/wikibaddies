@@ -32,6 +32,11 @@ spec:
       mode: local
     certManager:
       createClusterIssuer: true
+    auth:
+      slack:
+        enabled: repl{{ if and (ConfigOption "slack_client_id") (ConfigOption "slack_client_secret") }}true{{ else }}false{{ end }}
+        clientId: repl{{ ConfigOption "slack_client_id" }}
+        clientSecret: repl{{ ConfigOption "slack_client_secret" }}
     postgresql:
       enabled: repl{{ ConfigOptionEquals "postgres_type" "embedded_postgres" }}
     redis:

@@ -55,6 +55,20 @@ spec:
           when: 'repl{{ ConfigOptionEquals "postgres_type" "external_postgres" }}'
           required: true
 
+    - name: auth
+      title: Authentication
+      items:
+        - name: slack_client_id
+          title: Slack Client ID
+          type: text
+          help_text: |
+            OAuth Client ID from your Slack app (api.slack.com → Your App → OAuth & Permissions).
+        - name: slack_client_secret
+          title: Slack Client Secret
+          type: password
+          help_text: |
+            OAuth Client Secret from your Slack app.
+
     - name: cache
       title: Cache
       items:
