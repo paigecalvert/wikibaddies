@@ -959,3 +959,9 @@ minio:
 
 replicated:
   nameOverride: "outline-sdk"
+
+certManager:
+  # Set to true to create a Let's Encrypt ClusterIssuer.
+  # Requires cert-manager to be installed in the cluster.
+  # Enabled automatically for KOTS/EC installs via the HelmChart CR.
+  createClusterIssuer: false

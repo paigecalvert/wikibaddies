@@ -7,6 +7,15 @@ spec:
   extensions:
     helmCharts:
       - chart:
+          name: cert-manager
+          chartVersion: "v1.16.3"
+        releaseName: cert-manager
+        namespace: cert-manager
+        weight: -1
+        values:
+          crds:
+            enabled: true
+      - chart:
           name: ingress-nginx
           chartVersion: "4.11.3"
         releaseName: ingress-nginx

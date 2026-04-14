@@ -11,19 +11,27 @@ spec:
   namespace: outline
 
   values:
-    url: "http://repl{{ ConfigOption `hostname` }}"
+    url: "https://repl{{ ConfigOption `hostname` }}"
     service:
       type: ClusterIP
     ingress:
       enabled: true
       className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-http01
       hosts:
         - host: repl{{ ConfigOption "hostname" }}
           paths:
             - path: /
               pathType: Prefix
+      tls:
+        - hosts:
+            - repl{{ ConfigOption "hostname" }}
+          secretName: outline-tls
     fileStorage:
       mode: local
+    certManager:
+      createClusterIssuer: true
     postgresql:
       enabled: repl{{ ConfigOptionEquals "postgres_type" "embedded_postgres" }}
     redis:

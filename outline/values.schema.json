@@ -2548,6 +2548,19 @@
       "title": "replicated",
       "type": "object"
     },
+    "certManager": {
+      "additionalProperties": false,
+      "description": "cert-manager integration settings",
+      "properties": {
+        "createClusterIssuer": {
+          "description": "Create a Let's Encrypt ClusterIssuer. Requires cert-manager to be installed.",
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "title": "certManager",
+      "type": "object"
+    },
     "minio": {
       "additionalProperties": true,
       "description": "Minio configuration",
@@ -3490,7 +3503,8 @@
     "postgresql",
     "externalPostgresql",
     "minio",
-    "replicated"
+    "replicated",
+    "certManager"
   ],
   "type": "object"
 }
