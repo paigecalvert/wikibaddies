@@ -2541,6 +2541,13 @@
       "title": "externalPostgresql",
       "type": "object"
     },
+    "replicated": {
+      "additionalProperties": true,
+      "description": "Replicated SDK subchart configuration",
+      "required": [],
+      "title": "replicated",
+      "type": "object"
+    },
     "minio": {
       "additionalProperties": true,
       "description": "Minio configuration",
@@ -3482,7 +3489,8 @@
     "database",
     "postgresql",
     "externalPostgresql",
-    "minio"
+    "minio",
+    "replicated"
   ],
   "type": "object"
 }
