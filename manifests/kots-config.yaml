@@ -1,0 +1,82 @@
+apiVersion: kots.io/v1beta1
+kind: Config
+metadata:
+  name: outline
+spec:
+  groups:
+    - name: general
+      title: General
+      items:
+        - name: hostname
+          title: Hostname
+          help_text: |
+            The hostname customers will use to access Outline (e.g. outline.example.com).
+            Point a DNS A record at this VM's IP address before installing.
+            For testing without DNS, use <VM-IP>.nip.io (e.g. 1.2.3.4.nip.io).
+          type: text
+          required: true
+
+    - name: database
+      title: Database
+      items:
+        - name: postgres_type
+          title: PostgreSQL
+          type: select_one
+          default: embedded_postgres
+          items:
+            - name: embedded_postgres
+              title: Embedded PostgreSQL
+            - name: external_postgres
+              title: External PostgreSQL
+        - name: external_postgres_host
+          title: Host
+          type: text
+          when: 'repl{{ ConfigOptionEquals "postgres_type" "external_postgres" }}'
+          required: true
+        - name: external_postgres_port
+          title: Port
+          type: text
+          default: "5432"
+          when: 'repl{{ ConfigOptionEquals "postgres_type" "external_postgres" }}'
+        - name: external_postgres_database
+          title: Database Name
+          type: text
+          default: outline
+          when: 'repl{{ ConfigOptionEquals "postgres_type" "external_postgres" }}'
+        - name: external_postgres_username
+          title: Username
+          type: text
+          default: outline
+          when: 'repl{{ ConfigOptionEquals "postgres_type" "external_postgres" }}'
+        - name: external_postgres_password
+          title: Password
+          type: password
+          when: 'repl{{ ConfigOptionEquals "postgres_type" "external_postgres" }}'
+          required: true
+
+    - name: cache
+      title: Cache
+      items:
+        - name: redis_type
+          title: Redis
+          type: select_one
+          default: embedded_redis
+          items:
+            - name: embedded_redis
+              title: Embedded Redis
+            - name: external_redis
+              title: External Redis
+        - name: external_redis_host
+          title: Host
+          type: text
+          when: 'repl{{ ConfigOptionEquals "redis_type" "external_redis" }}'
+          required: true
+        - name: external_redis_port
+          title: Port
+          type: text
+          default: "6379"
+          when: 'repl{{ ConfigOptionEquals "redis_type" "external_redis" }}'
+        - name: external_redis_password
+          title: Password
+          type: password
+          when: 'repl{{ ConfigOptionEquals "redis_type" "external_redis" }}'

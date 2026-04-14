@@ -1,0 +1,57 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: outline
+spec:
+  chart:
+    name: outline
+    chartVersion: 0.7.3
+
+  releaseName: outline
+  namespace: outline
+
+  values:
+    url: "http://repl{{ ConfigOption `hostname` }}"
+    service:
+      type: ClusterIP
+    ingress:
+      enabled: true
+      className: nginx
+      hosts:
+        - host: repl{{ ConfigOption "hostname" }}
+          paths:
+            - path: /
+              pathType: Prefix
+    fileStorage:
+      mode: local
+    postgresql:
+      enabled: repl{{ ConfigOptionEquals "postgres_type" "embedded_postgres" }}
+    redis:
+      enabled: repl{{ ConfigOptionEquals "redis_type" "embedded_redis" }}
+
+  optionalValues:
+    - when: "repl{{ ConfigOptionEquals `postgres_type` `external_postgres` }}"
+      recursiveMerge: true
+      values:
+        externalPostgresql:
+          host: "repl{{ ConfigOption `external_postgres_host` }}"
+          port: "repl{{ ConfigOption `external_postgres_port` }}"
+          database: "repl{{ ConfigOption `external_postgres_database` }}"
+          username: "repl{{ ConfigOption `external_postgres_username` }}"
+          password: "repl{{ ConfigOption `external_postgres_password` }}"
+    - when: "repl{{ ConfigOptionEquals `redis_type` `external_redis` }}"
+      recursiveMerge: true
+      values:
+        externalRedis:
+          host: "repl{{ ConfigOption `external_redis_host` }}"
+          port: "repl{{ ConfigOption `external_redis_port` }}"
+          password: "repl{{ ConfigOption `external_redis_password` }}"
+
+  # builder ensures all conditional images are included in air gap bundles
+  builder:
+    postgresql:
+      enabled: true
+    redis:
+      enabled: true
+    minio:
+      enabled: true
