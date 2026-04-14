@@ -4,8 +4,6 @@
 # Declare variables to be passed into your templates.
 
 global:
-  imagePullSecrets:
-    - enterprise-pull-secret
   security:
     allowInsecureImages: true
 
@@ -725,6 +723,8 @@ redis:
     # -- This is temporary workaround because of bitnami's deprecation until to completely replace it with our solution.
     registry: proxy.replicated.com/proxy/outline-feline/index.docker.io
     repository: bitnamilegacy/redis
+    pullSecrets:
+      - enterprise-pull-secret
 
   auth:
     enabled: true
@@ -775,6 +775,8 @@ postgresql:
     # -- This is temporary workaround because of bitnami's deprecation until to completely replace it with our solution.
     registry: proxy.replicated.com/proxy/outline-feline/index.docker.io
     repository: bitnamilegacy/postgresql
+    pullSecrets:
+      - enterprise-pull-secret
 
   # -- This is for setting up the primary service.
   primary:

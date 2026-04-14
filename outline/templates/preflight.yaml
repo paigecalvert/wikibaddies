@@ -1,0 +1,91 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: "{{ .Release.Name }}-preflight-config"
+  labels:
+    troubleshoot.sh/kind: preflight
+    {{- include "outline.labels" . | nindent 4 }}
+stringData:
+  preflight.yaml: |
+    apiVersion: troubleshoot.sh/v1beta2
+    kind: Preflight
+    metadata:
+      name: {{ include "outline.fullname" . }}-preflight
+    spec:
+      collectors:
+        - clusterResources: {}
+        {{- if not .Values.postgresql.enabled }}
+        - postgres:
+            collectorName: external-postgresql
+            uri: "postgres://{{ include "outline.postgresql.username" . }}:{{ .Values.externalPostgresql.password }}@{{ .Values.externalPostgresql.host }}:{{ include "outline.postgresql.port" . }}/{{ include "outline.postgresql.database" . }}"
+        {{- end }}
+        {{- if not .Values.redis.enabled }}
+        - redis:
+            collectorName: external-redis
+            uri: "redis://{{ .Values.externalRedis.username | default "default" }}:{{ .Values.externalRedis.password }}@{{ .Values.externalRedis.host }}:{{ include "outline.redis.port" . }}"
+        {{- end }}
+
+      analyzers:
+        - clusterVersion:
+            checkName: Kubernetes Version
+            outcomes:
+              - fail:
+                  when: "< 1.23.0"
+                  message: |
+                    Outline requires Kubernetes 1.23.0 or later. Your cluster does not meet this
+                    requirement. Please upgrade your cluster before installing.
+              - pass:
+                  message: "Kubernetes version meets the minimum requirement of 1.23.0."
+
+        - nodeResources:
+            checkName: Node Memory
+            outcomes:
+              - fail:
+                  when: "min(memoryCapacity) < 2Gi"
+                  message: |
+                    At least one node has less than 2Gi of memory. Outline and its embedded
+                    dependencies (PostgreSQL, Redis, MinIO) require a minimum of 2Gi per node
+                    to schedule successfully. Add more memory or use a larger node type.
+              - warn:
+                  when: "min(memoryCapacity) < 4Gi"
+                  message: |
+                    At least one node has less than 4Gi of memory. Outline and its embedded
+                    dependencies run best with 4Gi or more per node. Consider using a larger
+                    node type to avoid resource contention.
+              - pass:
+                  message: "Node memory meets the recommended requirement of 4Gi."
+        {{- if not .Values.postgresql.enabled }}
+
+        - postgres:
+            checkName: External PostgreSQL Connectivity
+            collectorName: external-postgresql
+            outcomes:
+              - fail:
+                  when: "connected == false"
+                  message: |
+                    Cannot connect to PostgreSQL at {{ .Values.externalPostgresql.host }}:{{ include "outline.postgresql.port" . }}.
+                    Verify that:
+                      - The host is reachable from the cluster
+                      - The username '{{ include "outline.postgresql.username" . }}' has access to the '{{ include "outline.postgresql.database" . }}' database
+                      - The password provided in externalPostgresql.password is correct
+                      - The PostgreSQL instance is running and accepting connections on port {{ include "outline.postgresql.port" . }}
+              - pass:
+                  message: "Successfully connected to external PostgreSQL at {{ .Values.externalPostgresql.host }}."
+        {{- end }}
+        {{- if not .Values.redis.enabled }}
+
+        - redis:
+            checkName: External Redis Connectivity
+            collectorName: external-redis
+            outcomes:
+              - fail:
+                  when: "connected == false"
+                  message: |
+                    Cannot connect to Redis at {{ .Values.externalRedis.host }}:{{ include "outline.redis.port" . }}.
+                    Verify that:
+                      - The host is reachable from the cluster
+                      - The password provided in externalRedis.password is correct
+                      - The Redis instance is running and accepting connections on port {{ include "outline.redis.port" . }}
+              - pass:
+                  message: "Successfully connected to external Redis at {{ .Values.externalRedis.host }}."
+        {{- end }}
