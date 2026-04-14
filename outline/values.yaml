@@ -3,19 +3,26 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
+global:
+  imagePullSecrets:
+    - enterprise-pull-secret
+  security:
+    allowInsecureImages: true
+
 # This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
 replicaCount: 1
 
 # -- This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
-  repository: outlinewiki/outline
+  repository: proxy.replicated.com/proxy/outline-feline/index.docker.io/outlinewiki/outline
   # -- This sets the pull policy for images.
   pullPolicy: IfNotPresent
   # -- Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
 # -- This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
-imagePullSecrets: []
+imagePullSecrets:
+  - name: enterprise-pull-secret
 
 # -- This is to override the chart name.
 nameOverride: ""
@@ -105,7 +112,7 @@ utilsSecretExternalSecret:
   key: "utils-secret"
 
 # -- This is for setting up the url manually. It will be auto generated if not set. Depending to your ingress configuration, it can be automatically generated from ingress domain or service definition.
-url: "http://outline.localhost:3000"
+url: ""
 
 # -- This is for setting up the default language. See translate.getoutline.com for a list of available language codes and their rough percentage translated
 defaultLanguage: en_US
@@ -716,6 +723,7 @@ redis:
 
   image:
     # -- This is temporary workaround because of bitnami's deprecation until to completely replace it with our solution.
+    registry: proxy.replicated.com/proxy/outline-feline/index.docker.io
     repository: bitnamilegacy/redis
 
   auth:
@@ -765,6 +773,7 @@ postgresql:
 
   image:
     # -- This is temporary workaround because of bitnami's deprecation until to completely replace it with our solution.
+    registry: proxy.replicated.com/proxy/outline-feline/index.docker.io
     repository: bitnamilegacy/postgresql
 
   # -- This is for setting up the primary service.
@@ -815,6 +824,15 @@ externalPostgresql:
 minio:
   # -- Enable minio
   enabled: true
+
+  image:
+    repository: proxy.replicated.com/proxy/outline-feline/quay.io/minio/minio
+
+  mcImage:
+    repository: proxy.replicated.com/proxy/outline-feline/quay.io/minio/mc
+
+  imagePullSecrets:
+    - name: enterprise-pull-secret
 
   # -- Minio mode
   mode: standalone
@@ -936,3 +954,6 @@ minio:
       # set versioning for
       # bucket [true|false]
       versioning: false
+
+replicated:
+  nameOverride: "outline-sdk"
