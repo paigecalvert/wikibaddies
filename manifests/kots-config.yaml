@@ -15,6 +15,10 @@ spec:
             For testing without DNS, use <VM-IP>.nip.io (e.g. 1.2.3.4.nip.io).
           type: text
           required: true
+          validation:
+            regex:
+              pattern: '^[a-zA-Z0-9][a-zA-Z0-9\-\.]+[a-zA-Z0-9]$'
+              message: Must be a valid hostname (e.g. outline.example.com or 1.2.3.4.nip.io). No spaces, no leading or trailing hyphens.
 
 
     - name: database
@@ -29,6 +33,13 @@ spec:
               title: Embedded PostgreSQL
             - name: external_postgres
               title: External PostgreSQL
+        - name: embedded_postgres_password
+          title: Embedded PostgreSQL Password
+          type: password
+          value: 'repl{{ RandomString 32 }}'
+          when: 'repl{{ ConfigOptionEquals "postgres_type" "embedded_postgres" }}'
+          help_text: |
+            Auto-generated on first install. Leave as-is unless you need a specific password.
         - name: external_postgres_host
           title: Host
           type: text
@@ -39,6 +50,10 @@ spec:
           type: text
           default: "5432"
           when: 'repl{{ ConfigOptionEquals "postgres_type" "external_postgres" }}'
+          validation:
+            regex:
+              pattern: '^([1-9][0-9]{0,4})$'
+              message: Must be a valid port number (1–65535).
         - name: external_postgres_database
           title: Database Name
           type: text
@@ -68,6 +83,75 @@ spec:
           type: password
           help_text: |
             OAuth Client Secret from your Slack app.
+        - name: auth0_domain
+          title: Auth0 Domain
+          type: text
+          help_text: |
+            Your Auth0 tenant domain (e.g. dev-abc123.us.auth0.com). Found in your Auth0 dashboard under Applications → Settings.
+          validation:
+            regex:
+              pattern: '^[a-zA-Z0-9][a-zA-Z0-9\-\.]+[a-zA-Z0-9]$'
+              message: Must be a valid domain (e.g. dev-abc123.us.auth0.com). Do not include https://.
+        - name: auth0_client_id
+          title: Auth0 Client ID
+          type: text
+          when: 'repl{{ if ConfigOption "auth0_domain" }}true repl{{ else }}false repl{{ end }}'
+          help_text: |
+            Client ID from your Auth0 application settings.
+        - name: auth0_client_secret
+          title: Auth0 Client Secret
+          type: password
+          when: 'repl{{ if ConfigOption "auth0_domain" }}true repl{{ else }}false repl{{ end }}'
+          help_text: |
+            Client Secret from your Auth0 application settings.
+
+    - name: integrations
+      title: Integrations
+      items:
+        - name: sentry_dsn
+          title: Sentry DSN
+          type: text
+          help_text: |
+            DSN from your Sentry project (sentry.io → Project → Settings → Client Keys).
+            Enables error tracking for Outline.
+        - name: slack_app_id
+          title: Slack App ID
+          type: text
+          help_text: |
+            App ID from your Slack app (api.slack.com → Your App → Basic Information).
+            Enables slash commands, message actions, and link unfurling.
+        - name: slack_verification_token
+          title: Slack Verification Token
+          type: password
+          when: 'repl{{ if ConfigOption "slack_app_id" }}true repl{{ else }}false repl{{ end }}'
+          help_text: |
+            Verification Token from your Slack app (api.slack.com → Your App → Basic Information).
+
+    - name: storage
+      title: File Storage
+      items:
+        - name: storage_type
+          title: File Storage
+          type: select_one
+          default: local
+          items:
+            - name: local
+              title: Local Disk
+            - name: embedded_minio
+              title: Embedded MinIO (S3)
+        - name: minio_hostname
+          title: MinIO Hostname
+          type: text
+          when: 'repl{{ ConfigOptionEquals "storage_type" "embedded_minio" }}'
+          required: true
+          help_text: |
+            Public hostname for the MinIO service. Outline generates presigned URLs pointing here,
+            so browsers must be able to reach it.
+            For nip.io testing, use minio.<IP>.nip.io (e.g. minio.1.2.3.4.nip.io).
+          validation:
+            regex:
+              pattern: '^[a-zA-Z0-9][a-zA-Z0-9\-\.]+[a-zA-Z0-9]$'
+              message: Must be a valid hostname (e.g. minio.1.2.3.4.nip.io). No spaces, no leading or trailing hyphens.
 
     - name: cache
       title: Cache
@@ -91,6 +175,10 @@ spec:
           type: text
           default: "6379"
           when: 'repl{{ ConfigOptionEquals "redis_type" "external_redis" }}'
+          validation:
+            regex:
+              pattern: '^([1-9][0-9]{0,4})$'
+              message: Must be a valid port number (1–65535).
         - name: external_redis_password
           title: Password
           type: password

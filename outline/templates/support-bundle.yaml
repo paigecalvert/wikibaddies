@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "outline.fullname" . }}-support-bundle
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "outline.labels" . | nindent 4 }}
+    troubleshoot.sh/kind: support-bundle
+stringData:
+  support-bundle-spec: |
+    apiVersion: troubleshoot.sh/v1beta2
+    kind: SupportBundle
+    spec:
+      collectors:
+        - logs:
+            name: outline/app-logs
+            namespace: {{ .Release.Namespace }}
+            selector:
+              - app.kubernetes.io/name=outline
+            limits:
+              maxLines: 10000
+        - logs:
+            name: outline/postgresql-logs
+            namespace: {{ .Release.Namespace }}
+            selector:
+              - app.kubernetes.io/name=postgresql
+        - logs:
+            name: outline/redis-logs
+            namespace: {{ .Release.Namespace }}
+            selector:
+              - app.kubernetes.io/name=redis
+        - clusterResources: {}
+      analyzers:
+        - deploymentStatus:
+            checkName: Outline Application
+            name: {{ include "outline.fullname" . }}
+            namespace: {{ .Release.Namespace }}
+            outcomes:
+              - fail:
+                  when: "absent"
+                  message: |
+                    The Outline deployment was not found in namespace '{{ .Release.Namespace }}'.
+                    The Helm release may not have installed correctly — check the release status and re-run the installer.
+              - fail:
+                  when: "< 1"
+                  message: |
+                    Outline has no ready pods. Common causes:
+                    - Database connection failure (wrong host, port, or credentials for embedded or external PostgreSQL)
+                    - Redis unavailable (session management and job queuing will fail)
+                    - Missing or invalid SECRET_KEY / UTILS_SECRET
+                    Review logs in outline/app-logs for the specific startup error.
+              - pass:
+                  when: ">= 1"
+                  message: Outline is running with at least one ready pod.
+        - statefulsetStatus:
+            checkName: Embedded PostgreSQL
+            name: {{ include "outline.fullname" . }}-postgresql
+            namespace: {{ .Release.Namespace }}
+            outcomes:
+              - pass:
+                  when: absent
+                  message: Embedded PostgreSQL is not deployed — external PostgreSQL is configured.
+              - fail:
+                  when: "< 1"
+                  message: |
+                    Embedded PostgreSQL has no ready replicas. Outline cannot read or write any data.
+                    Check outline/postgresql-logs for errors. Verify the PVC has sufficient disk space:
+                    kubectl get pvc -n {{ .Release.Namespace }}
+              - pass:
+                  when: ">= 1"
+                  message: Embedded PostgreSQL is running.
+        - statefulsetStatus:
+            checkName: Embedded Redis
+            name: {{ include "outline.fullname" . }}-redis-master
+            namespace: {{ .Release.Namespace }}
+            outcomes:
+              - pass:
+                  when: absent
+                  message: Embedded Redis is not deployed — external Redis is configured.
+              - fail:
+                  when: "< 1"
+                  message: |
+                    Embedded Redis has no ready replicas. Outline requires Redis for real-time
+                    collaboration, session management, and background job queuing — the app
+                    will fail to start or behave incorrectly without it.
+                    Review outline/redis-logs for errors.
+              - pass:
+                  when: ">= 1"
+                  message: Embedded Redis is running.

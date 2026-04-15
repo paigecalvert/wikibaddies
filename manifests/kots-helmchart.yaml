@@ -30,15 +30,19 @@ spec:
           secretName: outline-tls
     fileStorage:
       mode: local
+    minio:
+      enabled: false
     certManager:
       createClusterIssuer: true
     auth:
       slack:
-        enabled: repl{{ if and (ConfigOption "slack_client_id") (ConfigOption "slack_client_secret") }}true{{ else }}false{{ end }}
-        clientId: repl{{ ConfigOption "slack_client_id" }}
-        clientSecret: repl{{ ConfigOption "slack_client_secret" }}
+        enabled: repl{{ if and (ConfigOption "slack_client_id") (ConfigOption "slack_client_secret") }}truerepl{{ else }}falserepl{{ end }}
+        clientId: 'repl{{ ConfigOption "slack_client_id" }}'
+        clientSecret: 'repl{{ ConfigOption "slack_client_secret" }}'
     postgresql:
       enabled: repl{{ ConfigOptionEquals "postgres_type" "embedded_postgres" }}
+      auth:
+        password: repl{{ ConfigOption "embedded_postgres_password" }}
     redis:
       enabled: repl{{ ConfigOptionEquals "redis_type" "embedded_redis" }}
   optionalValues:
@@ -58,6 +62,43 @@ spec:
           host: "repl{{ ConfigOption `external_redis_host` }}"
           port: "repl{{ ConfigOption `external_redis_port` }}"
           password: "repl{{ ConfigOption `external_redis_password` }}"
+    - when: "repl{{ if and (ConfigOption `auth0_domain`) (ConfigOption `auth0_client_id`) (ConfigOption `auth0_client_secret`) }}truerepl{{ else }}falserepl{{ end }}"
+      recursiveMerge: true
+      values:
+        auth:
+          auth0:
+            enabled: true
+            baseUrl: 'https://repl{{ ConfigOption "auth0_domain" }}'
+            clientId: 'repl{{ ConfigOption "auth0_client_id" }}'
+            clientSecret: 'repl{{ ConfigOption "auth0_client_secret" }}'
+    - when: "repl{{ if ConfigOption `sentry_dsn` }}truerepl{{ else }}falserepl{{ end }}"
+      recursiveMerge: true
+      values:
+        integrations:
+          sentry:
+            enabled: true
+            dsn: 'repl{{ ConfigOption "sentry_dsn" }}'
+    - when: "repl{{ if and (ConfigOption `slack_app_id`) (ConfigOption `slack_verification_token`) }}truerepl{{ else }}falserepl{{ end }}"
+      recursiveMerge: true
+      values:
+        integrations:
+          slack:
+            enabled: true
+            appId: 'repl{{ ConfigOption "slack_app_id" }}'
+            verificationToken: 'repl{{ ConfigOption "slack_verification_token" }}'
+    - when: "repl{{ ConfigOptionEquals `storage_type` `embedded_minio` }}"
+      recursiveMerge: true
+      values:
+        fileStorage:
+          mode: s3
+          s3:
+            accessKeyId: outline
+            secretAccessKey: Change_Me
+        minio:
+          enabled: true
+          ingress:
+            hosts:
+              - repl{{ ConfigOption "minio_hostname" }}
 
   # builder ensures all conditional images are included in air gap bundles
   builder:
