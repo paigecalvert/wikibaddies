@@ -11,6 +11,8 @@ spec:
   namespace: outline
 
   values:
+    image:
+      repository: 'repl{{ ReplicatedImageName (HelmValue ".image.repository") true }}'
     url: "https://repl{{ ConfigOption `hostname` }}"
     service:
       type: ClusterIP
@@ -32,6 +34,10 @@ spec:
       mode: local
     minio:
       enabled: false
+      image:
+        repository: 'repl{{ ReplicatedImageName (HelmValue ".minio.image.repository") true }}'
+      mcImage:
+        repository: 'repl{{ ReplicatedImageName (HelmValue ".minio.mcImage.repository") true }}'
     certManager:
       createClusterIssuer: true
     auth:
@@ -43,8 +49,14 @@ spec:
       enabled: repl{{ ConfigOptionEquals "postgres_type" "embedded_postgres" }}
       auth:
         password: repl{{ ConfigOption "embedded_postgres_password" }}
+      image:
+        registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".postgresql.image.registry") }}'
+        repository: 'repl{{ ReplicatedImageRepository (HelmValue ".postgresql.image.repository") true }}'
     redis:
       enabled: repl{{ ConfigOptionEquals "redis_type" "embedded_redis" }}
+      image:
+        registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".redis.image.registry") }}'
+        repository: 'repl{{ ReplicatedImageRepository (HelmValue ".redis.image.repository") true }}'
   optionalValues:
     - when: "repl{{ ConfigOptionEquals `postgres_type` `external_postgres` }}"
       recursiveMerge: true
@@ -99,6 +111,14 @@ spec:
           ingress:
             hosts:
               - repl{{ ConfigOption "minio_hostname" }}
+
+    - when: 'repl{{ LicenseFieldValue "iframely" }}'
+      recursiveMerge: true
+      values:
+        integrations:
+          iframely:
+            enabled: true
+            url: "http://iframely:8061"
 
   # builder ensures all conditional images are included in air gap bundles
   builder:

@@ -1,0 +1,20 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: iframely
+spec:
+  chart:
+    name: iframely
+    chartVersion: 0.1.0
+
+  releaseName: iframely
+  namespace: outline
+
+  values:
+    enabled: repl{{ LicenseFieldValue "iframely" }}
+    image:
+      repository: 'repl{{ ReplicatedImageName (HelmValue ".image.repository") true }}'
+
+  # builder ensures the iframely image is always included in air gap bundles
+  builder:
+    enabled: true

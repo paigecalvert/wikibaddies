@@ -1,0 +1,24 @@
+apiVersion: kots.io/v1beta1
+kind: Airgap
+metadata: {}
+spec:
+  appSlug: outline-feline
+  channelID: 3CMCHSNGJEtl0ePfmRGb2KP0RS7
+  channelName: Development (Paige)
+  embeddedClusterVersion: 3.0.0-alpha-31+k8s-1.34
+  format: docker
+  replicatedChartNames:
+  - replicated
+  - replicated-sdk
+  savedImages:
+  - proxy.replicated.com/library/replicated-sdk-image:1.19.1
+  - proxy.replicated.com/proxy/outline-feline/index.docker.io/bitnamilegacy/postgresql:latest
+  - proxy.replicated.com/proxy/outline-feline/index.docker.io/bitnamilegacy/redis:latest
+  - proxy.replicated.com/proxy/outline-feline/index.docker.io/minio/mc:RELEASE.2024-11-21T17-21-54Z
+  - proxy.replicated.com/proxy/outline-feline/index.docker.io/minio/minio:RELEASE.2024-12-18T13-15-44Z
+  - proxy.replicated.com/proxy/outline-feline/index.docker.io/outlinewiki/outline:1.1.0
+  signature: OoYVXkl0yeTPjRYcYRWstW4Lm+wCwk3WOfc8kN1D/rEOq0NvjM7Glw2r6OV0qeyHhJxmvL8gxJFwKidJ6QWdiXu1PMEOJADJF6UYcnz0SFq2fH2i/HxQShVwMv8yNUHx45APGGCOMpYJmFsFK3HRJXEo8W9V8ZoVpX68Rhr1wkLouEDGAQKTF4jaO0oXe3gwVHJsvB8J6rOc6STIXPMY2rgVQa6KUGLBwal2WUnxhemYUDJ0ISl/ax6IsTxhNyqzhiBqg6K1zryfZL7qLFUNA11jEtF5oAw1eXwrG/5vvZLn+aGeyJ9lc7BoaO6AqyIgNIuzkIH8B6+6nawoolU9NA==
+  uncompressedSize: 562420588
+  updateCursor: "18"
+  versionLabel: 0.8.10
+status: {}

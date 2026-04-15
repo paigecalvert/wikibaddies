@@ -20,8 +20,6 @@ spec:
           chartVersion: "4.11.3"
         releaseName: ingress-nginx
         namespace: ingress-nginx
-        # image registry rewriting (ReplicatedImageRegistry/Repository) omitted:
-        # the linter does not support these KOTS runtime functions at lint time.
         values:
           controller:
             service:
@@ -29,3 +27,6 @@ spec:
               nodePorts:
                 http: "80"
                 https: "443"
+            image:
+              registry: 'repl{{ ReplicatedImageRegistry "registry.k8s.io" }}'
+              repository: 'repl{{ ReplicatedImageRepository "registry.k8s.io/ingress-nginx/controller" }}'

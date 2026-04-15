@@ -153,7 +153,7 @@ The Cloudflare DNS records pointed to `34.61.46.40` (ingress-nginx), so requests
 
 ---
 
-## Step 11: Helm upgrade with correct ingressClassName (in progress)
+## Step 11: Helm upgrade with correct ingressClassName
 
 **Fix:** Added `ingress.className=nginx` and `minio.ingress.ingressClassName=nginx` so both ingresses route through ingress-nginx instead of GKE's default ingress class.
 
@@ -434,3 +434,328 @@ kind: HelmChart
 - **Air-gap image split:**
   - EC air-gap bundle: ingress-nginx images (via `ReplicatedImageName` in the EC config)
   - App air-gap bundle: Outline, PostgreSQL, Redis, MinIO images (via `builder` in HelmChart v2)
+
+---
+
+## Step 17: KOTS Application resource and v1beta3 preflight (Rubric tasks 1.1, 1.3)
+
+### `kots-application.yaml`
+
+Added a `kind: Application` resource for EC v3 branding:
+- `title: Outline` — displayed in the Admin Console
+- `icon` — base64-encoded SVG embedded directly (required for air-gap where external URLs aren't reachable)
+
+### `manifests/preflight.yaml` (v1beta3)
+
+EC v3 requires a standalone `troubleshoot.sh/v1beta3` preflight separate from the Helm chart's v1beta2 preflight. The v1beta2 preflight (inside the chart Secret) continues to serve the Helm CLI install path.
+
+**Why two preflights:**
+- v1beta2 in `outline/templates/preflight.yaml`: rendered by Helm, supports conditional collectors/analyzers via `{{- if .Values.xxx }}`
+- v1beta3 in `manifests/preflight.yaml`: plain static YAML, processed by EC before install
+
+**v1beta3 design:** Contains only the 5 always-true infrastructure checks (Kubernetes version, schedulable nodes, node memory, default storage class, ingress class nginx). The external postgres/redis checks were omitted because they require runtime config values that can't be expressed in static YAML. Those remain in the v1beta2 preflight for Helm CLI installs.
+
+---
+
+## Step 18: EC v3 install iteration
+
+### Linter issues with Replicated template functions
+
+**Problem:** `replicated release lint` reported `unable-to-render` errors for `ReplicatedImageName`, `ReplicatedImageRegistry`, and `ReplicatedImageRepository` template functions in both `embedded-cluster-config.yaml` and `kots-helmchart.yaml`. The linter evaluates these files as Helm/Go templates at lint time but doesn't know about KOTS runtime functions.
+
+**Resolution:** Removed the image registry rewriting calls from both files. The `builder` key in the HelmChart CR still ensures images are included in air-gap bundles. Registry rewriting (for correct resolution in air-gap) is a TODO — requires linter support or acceptance of lint errors.
+
+**Also fixed:** Redis and PostgreSQL `image.registry` values were restructured from `proxy.replicated.com/proxy/outline-feline/index.docker.io` (bundled path) to `proxy.replicated.com` (domain only) with the full proxy path moved into `image.repository`. This is the correct split for `ReplicatedImageRegistry/Repository` — both produce the same final image reference.
+
+### EC installer UI port
+
+EC v3 Admin Console is on port **30080** (not 8800 as in EC v2). Also requires port 50000 for the Local Artifact Mirror (LAM).
+
+**GCP firewall rule:**
+```bash
+gcloud compute firewall-rules create outline-test-paige \
+  --allow=tcp:22,tcp:80,tcp:443,tcp:30000,tcp:50000 \
+  --target-tags=outline-test-paige
+```
+
+Access installer UI at `http://<vm-ip>:30080`.
+
+### ingress-nginx chart archive must be bundled
+
+EC extensions identify charts by `name` + `chartVersion` and look for a matching `.tgz` archive in the release bundle — there is no `chartURL` field in the EC Config schema. The ingress-nginx chart archive must be pulled and committed alongside the other manifests:
+
+```bash
+helm pull ingress-nginx \
+  --repo https://kubernetes.github.io/ingress-nginx \
+  --version 4.11.3 \
+  --destination manifests/
+```
+
+### `values` must be a YAML map, not a string
+
+The EC Config `extensions.helmCharts[].values` field must be a YAML map (nested object), not a literal block string (`|`). Despite docs showing `values: |`, the EC Go struct unmarshals this field as `map[string]interface{}`. Using `|` produces a `!!str` type and causes:
+
+```
+unmarshal rendered spec for ingress-nginx: yaml: line 6: cannot unmarshal !!str `control...` into map[string]interface {}
+```
+
+**Fix:** Changed `values: |` → `values:` (plain YAML map).
+
+### First successful EC install
+
+- VM: GCP `e2-standard-4` (4 vCPU, 16 GB), Ubuntu 22.04, 50 GB SSD
+- Accessed installer at `https://<vm-ip>:30080`
+- Hostname set to `<vm-ip>.nip.io` (nip.io resolves `<IP>.nip.io` → IP, no DNS setup required)
+- Embedded PostgreSQL + Redis selected (defaults)
+- Outline accessible at `http://<vm-ip>.nip.io` ✓
+
+---
+
+## Step 19: Add TLS + Slack OAuth
+
+**Goal:** Enable Slack OAuth for Outline authentication. Slack requires HTTPS for OAuth redirect URLs.
+
+**Approach:** Add cert-manager as an EC extension and use Let's Encrypt HTTP-01 challenge to issue a certificate for the `<IP>.nip.io` domain (publicly resolvable → Let's Encrypt can validate).
+
+**Changes:**
+
+- **`embedded-cluster-config.yaml`:** Added cert-manager as an extension with `weight: -1` so it installs before ingress-nginx. Used `crds.enabled: true` (cert-manager v1.15+ syntax).
+
+- **`outline/templates/cluster-issuer.yaml`:** New template that conditionally creates a `cert-manager.io/v1 ClusterIssuer` for Let's Encrypt. Uses `global.replicated.customerEmail` (injected by the Replicated SDK from the customer license) for the ACME registration email — no extra config field needed.
+
+- **`outline/values.yaml`:** Added `certManager.createClusterIssuer: false` (safe default for Helm CLI installs without cert-manager).
+
+- **`kots-helmchart.yaml`:** Set `certManager.createClusterIssuer: true` for KOTS/EC installs. Updated ingress to add `cert-manager.io/cluster-issuer: letsencrypt-http01` annotation and a `tls` block. Changed `url` from `http://` to `https://`.
+
+**cert-manager chart archive:** Must be bundled in the release, same as ingress-nginx:
+```bash
+helm pull cert-manager \
+  --repo https://charts.jetstack.io \
+  --version v1.16.3 \
+  --destination manifests/
+```
+
+**Note:** The installer UI at port 30080 retains its own EC-managed self-signed certificate — cert-manager only affects the Outline app's ingress certificate.
+
+**TLS verification:** After upgrade, confirmed:
+- `kubectl get certificaterequest,order,challenge -n outline` — CertificateRequest READY: True, Order valid, no pending challenges
+- `kubectl describe clusterissuer letsencrypt-http01` — ACME account registered, ClusterIssuer Ready
+- `outline-tls` secret created in the `outline` namespace
+- Outline accessible at `https://<vm-ip>.nip.io` ✓
+
+**Slack OAuth app setup:**
+- Created a Slack app in a test workspace at api.slack.com
+- Added redirect URL: `https://<vm-ip>.nip.io/auth/slack.callback` (requires HTTPS)
+- Required User Token Scopes: `identity.basic`, `identity.email`, `identity.avatar`
+- Obtained Client ID and Client Secret from the app's OAuth & Permissions page
+- Config screen fields: `slack_client_id` (text) and `slack_client_secret` (password) in the Authentication group
+
+---
+
+## Step 20: Slack auth template bug fix + generated DB password (Rubric tasks 1.8, 1.19)
+
+### Slack `if/else` delimiter bug
+
+**Problem:** Upgrade failed with:
+```
+render template in kots-helmchart.yaml: failed to get template: ...:70: unexpected EOF
+```
+
+**Root cause:** The `auth.slack.enabled` value used a `{{ if }}...{{ else }}...{{ end }}` construct that mixed delimiter styles:
+```yaml
+enabled: repl{{ if and ... }}true{{ else }}false{{ end }}
+```
+
+KOTS uses `repl{{` as the left delimiter and `}}` as the right delimiter. The `}}` inside `{{ else }}` is parsed as a stray right delimiter (closing nothing), which leaves the `if` block open. The parser then hits EOF with an unclosed block.
+
+**Fix:** All control flow actions must use the `repl{{` left delimiter consistently:
+```yaml
+enabled: repl{{ if and (ConfigOption "slack_client_id") (ConfigOption "slack_client_secret") }}truerepl{{ else }}falserepl{{ end }}
+```
+
+This matches the pattern shown in KOTS docs — use `repl{{ else }}` and `repl{{ end }}` (or `{{repl else }}` / `{{repl end }}` if using the `{{repl` style throughout).
+
+### Generated embedded PostgreSQL password (Rubric task 1.19)
+
+**Problem:** The embedded PostgreSQL password was hardcoded as `"password"` in `values.yaml`. This is the same for every install and doesn't survive upgrades cleanly.
+
+**Fix:** Added a hidden config item with a KOTS-generated value:
+
+```yaml
+# kots-config.yaml
+- name: embedded_postgres_password
+  title: Embedded PostgreSQL Password
+  type: password
+  value: 'repl{{ RandomString 32 }}'
+  when: 'repl{{ ConfigOptionEquals "postgres_type" "embedded_postgres" }}'
+```
+
+Using `value:` (not `default:`) is critical — KOTS evaluates this once on first install and stores the result. Subsequent upgrades reuse the stored value, so the password is stable across the lifecycle of the installation.
+
+Wired into the HelmChart CR:
+```yaml
+postgresql:
+  auth:
+    password: repl{{ ConfigOption "embedded_postgres_password" }}
+```
+
+**Demo for rubric:** In the config screen, the Embedded PostgreSQL Password field is pre-populated with a 32-character random string. Leave it as-is, install, then upgrade — Outline continues to connect to the database with the same password.
+
+**Important:** Changing the generated password on an existing install breaks PostgreSQL — the Secret is updated but the database still expects the old password. Always do a fresh install when the generated password changes (e.g. switching from a release without the field to one with it).
+
+---
+
+## Step 21: Support bundle (Rubric task 2.7)
+
+Created `outline/templates/support-bundle.yaml` — a Secret with label `troubleshoot.sh/kind: support-bundle` (same discovery mechanism as the v1beta2 preflight). Helm template functions are used for resource names and namespace so the spec is always accurate regardless of release name.
+
+**Collectors:**
+- Outline app logs (up to 10,000 lines)
+- PostgreSQL pod logs
+- Redis pod logs
+- Cluster resources (all namespaced resources in the outline namespace)
+
+**Analyzers (3 checks):**
+
+| Check | Pass | Fail |
+|---|---|---|
+| Outline Application | ≥1 ready pod | Absent or 0/1 — lists common causes (DB failure, missing SECRET_KEY, auth misconfiguration) |
+| Embedded PostgreSQL | Absent (external in use) or ≥1 ready | 0/1 — directs to postgresql logs and PVC disk space check |
+| Embedded Redis | Absent (external in use) or ≥1 ready | 0/1 — explains impact (real-time collab, sessions, job queue) |
+
+**Why these checks matter for debugging Outline:**
+- Outline fails to start entirely if either PostgreSQL or Redis is unavailable — so knowing which dependency is down immediately narrows the problem
+- The Outline analyzer surfaces common startup errors (bad credentials, missing secrets) that otherwise require reading logs to find
+
+**Run the support bundle:**
+```bash
+kubectl support-bundle --load-cluster-specs -n outline
+```
+
+---
+
+## Step 22: File storage toggle (Rubric task 1.6)
+
+Added a **File Storage** config group to `kots-config.yaml` with two options:
+
+| Option | Effect |
+|---|---|
+| Local Disk (default) | `minio.enabled: false`, `fileStorage.mode: local` — files stored on a PV on the VM |
+| Embedded MinIO (S3) | `minio.enabled: true`, `fileStorage.mode: s3` — files stored in MinIO, accessible via a second public hostname |
+
+**MinIO hostname requirement:** When embedded MinIO is selected, a second hostname is required (e.g. `minio.1.2.3.4.nip.io` or `minio.outline.wikibaddies.com`). Outline generates S3 presigned URLs pointing to this hostname — browsers hit it directly for file uploads/downloads, so it must be publicly reachable.
+
+**Why local disk is the default for EC:** Single-VM installs don't need object storage for basic use. Local disk avoids the complexity of a second DNS record and hostname. MinIO is still available as an opt-in for customers who need S3-compatible storage or plan to scale beyond a single node.
+
+**builder section:** `minio.enabled: true` is kept in the `builder` block so MinIO images are always included in air-gap bundles, even when local disk is the default.
+
+---
+
+## Step 23: Air gap image rewriting (Rubric task 1.3)
+
+Added `ReplicatedImageName`, `ReplicatedImageRegistry`, and `ReplicatedImageRepository` template functions so image refs are automatically rewritten at runtime — pointing to `proxy.replicated.com` for online installs and to the EC Local Artifact Mirror (LAM) for air-gap installs.
+
+### Template function reference
+
+| Function | Use case |
+|---|---|
+| `ReplicatedImageName (HelmValue ".path") true` | Single combined `repository` field that already contains the proxy prefix |
+| `ReplicatedImageRegistry (HelmValue ".path")` | Split `registry` field — returns `proxy.replicated.com` online, LAM address in air-gap |
+| `ReplicatedImageRepository (HelmValue ".path") true` | Split `repository` field that already contains the proxy path — returns unchanged online, LAM path in air-gap |
+
+`noProxy: true` is used when the value in `values.yaml` already has the `proxy.replicated.com/proxy/<app-slug>/` prefix baked in. Without it, `ReplicatedImageName` would double-wrap the proxy prefix online (e.g. `proxy.replicated.com/proxy/outline-feline/proxy.replicated.com/...`). With it, online installs leave the value unchanged while air-gap installs still rewrite to the LAM.
+
+### Changes in `kots-helmchart.yaml`
+
+| Image | Function used | noProxy |
+|---|---|---|
+| Outline (`image.repository`) | `ReplicatedImageName` | `true` — full proxy URL already in value |
+| MinIO (`minio.image.repository`, `minio.mcImage.repository`) | `ReplicatedImageName` | `true` — full proxy URL already in value |
+| Redis (`redis.image.registry`) | `ReplicatedImageRegistry` | omitted — needs to switch registry host |
+| Redis (`redis.image.repository`) | `ReplicatedImageRepository` | `true` — proxy path already in value |
+| PostgreSQL (`postgresql.image.registry`) | `ReplicatedImageRegistry` | omitted — needs to switch registry host |
+| PostgreSQL (`postgresql.image.repository`) | `ReplicatedImageRepository` | `true` — proxy path already in value |
+
+### Changes in `embedded-cluster-config.yaml`
+
+Added image rewriting for the ingress-nginx extension controller image. Upstream image refs are passed as literal strings (no `HelmValue` needed since EC extensions don't have a `values.yaml`):
+
+```yaml
+controller:
+  image:
+    registry: 'repl{{ ReplicatedImageRegistry "registry.k8s.io" }}'
+    repository: 'repl{{ ReplicatedImageRepository "registry.k8s.io/ingress-nginx/controller" }}'
+```
+
+**Note:** The `values` field in EC Config extensions must be a YAML map (not `values: |` string format). Despite the docs showing the string format, the EC Go struct expects `map[string]interface{}` — using `|` causes an unmarshal error at install time.
+
+### Linter behavior
+
+`replicated release lint` reports `unable-to-render` errors for these functions because the linter doesn't know about EC v3 runtime functions. This is a known linter limitation — the functions are valid at runtime. The linter fails fast on the first unknown function per file, so only `ReplicatedImageName` and `ReplicatedImageRegistry` are flagged (not `ReplicatedImageRepository`, which appears on the next line after the failure).
+
+### Inspecting the air-gap bundle
+
+To verify the contents of an air-gap bundle without downloading the full file to disk, stream it through `tar`:
+
+```bash
+# List all files in the bundle
+curl -sL "<presigned-download-url>" | tar -tzf -
+
+# Extract and print airgap.yaml (lists all bundled images)
+curl -sL "<presigned-download-url>" | tar -xzf - airgap.yaml -O
+```
+
+The bundle is a gzipped tar containing:
+- `airgap.yaml` — manifest listing all images in the bundle
+- `app.tar.gz` — the Helm chart(s)
+- `images/docker/registry/v2/` — OCI image store with all container image layers
+
+---
+
+## Step 24: iFramely chart + license-gated deployment (Rubric task 1.12)
+
+Created a custom `iframely/` Helm chart from scratch and wired it to a Replicated license field so it only deploys when the customer's license has `iframely: true`.
+
+### iFramely chart (`iframely/`)
+
+Minimal chart with two templates:
+
+- `templates/deployment.yaml` — single-container Deployment, both wrapped in `{{- if .Values.enabled }}`
+- `templates/service.yaml` — ClusterIP Service on port 8061, also gated by `{{- if .Values.enabled }}`
+
+Both resources are no-ops when `enabled: false` (the default), so the chart can always be installed without deploying anything for unlicensed customers.
+
+The service is named after the release (`iframely`) so it's reachable within the `outline` namespace at `http://iframely:8061` without any extra DNS or ingress configuration.
+
+**Image:** `proxy.replicated.com/proxy/outline-feline/ghcr.io/iframely/iframely` — requires `ghcr.io` to be registered in the Vendor Portal under external registries.
+
+### `manifests/kots-iframely-helmchart.yaml`
+
+Separate HelmChart CR for the iFramely chart:
+
+```yaml
+values:
+  enabled: repl{{ LicenseFieldValue "iframely" }}
+  image:
+    repository: 'repl{{ ReplicatedImageName (HelmValue ".image.repository") true }}'
+builder:
+  enabled: true  # always include image in air gap bundle
+```
+
+`LicenseFieldValue "iframely"` returns the string `"true"` or `"false"` from the license field. Rendered unquoted into YAML, this becomes a proper YAML boolean that Helm sees as `true`/`false` — so `{{- if .Values.enabled }}` works correctly in the chart templates.
+
+### `manifests/kots-helmchart.yaml` — outline optionalValues
+
+Added an entry that fires when the license field is `true`, pointing Outline at the iFramely service:
+
+```yaml
+- when: 'repl{{ LicenseFieldValue "iframely" }}'
+  recursiveMerge: true
+  values:
+    integrations:
+      iframely:
+        enabled: true
+        url: "http://iframely:8061"
+```
+
+The outline chart already has `integrations.iframely.url` and `integrations.iframely.enabled` values — no chart template changes needed.

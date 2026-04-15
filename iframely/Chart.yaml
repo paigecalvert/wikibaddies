@@ -1,0 +1,6 @@
+apiVersion: v2
+name: iframely
+description: iFramely link preview and oEmbed service for Outline
+type: application
+version: 0.1.0
+appVersion: "2.7.3"

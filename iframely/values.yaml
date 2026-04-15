@@ -1,0 +1,23 @@
+enabled: false
+
+replicaCount: 1
+
+image:
+  repository: proxy.replicated.com/proxy/outline-feline/ghcr.io/iframely/iframely
+  pullPolicy: IfNotPresent
+  tag: ""
+
+imagePullSecrets:
+  - name: enterprise-pull-secret
+
+service:
+  type: ClusterIP
+  port: 8061
+
+resources: {}
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext: {}
