@@ -12,7 +12,7 @@ replicaCount: 1
 
 # -- This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
-  repository: proxy.replicated.com/proxy/outline-feline/index.docker.io/outlinewiki/outline
+  repository: registry.wikibaddies.com/proxy/outline-feline/index.docker.io/outlinewiki/outline
   # -- This sets the pull policy for images.
   pullPolicy: IfNotPresent
   # -- Overrides the image tag whose default is the chart appVersion.
@@ -721,7 +721,7 @@ redis:
 
   image:
     # -- This is temporary workaround because of bitnami's deprecation until to completely replace it with our solution.
-    registry: proxy.replicated.com
+    registry: registry.wikibaddies.com
     repository: proxy/outline-feline/index.docker.io/bitnamilegacy/redis
     pullSecrets:
       - enterprise-pull-secret
@@ -773,7 +773,7 @@ postgresql:
 
   image:
     # -- This is temporary workaround because of bitnami's deprecation until to completely replace it with our solution.
-    registry: proxy.replicated.com
+    registry: registry.wikibaddies.com
     repository: proxy/outline-feline/index.docker.io/bitnamilegacy/postgresql
     pullSecrets:
       - enterprise-pull-secret
@@ -828,10 +828,10 @@ minio:
   enabled: true
 
   image:
-    repository: proxy.replicated.com/proxy/outline-feline/index.docker.io/minio/minio
+    repository: registry.wikibaddies.com/proxy/outline-feline/index.docker.io/minio/minio
 
   mcImage:
-    repository: proxy.replicated.com/proxy/outline-feline/index.docker.io/minio/mc
+    repository: registry.wikibaddies.com/proxy/outline-feline/index.docker.io/minio/mc
 
   imagePullSecrets:
     - name: enterprise-pull-secret

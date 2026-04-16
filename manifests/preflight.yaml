@@ -62,12 +62,12 @@ spec:
 
     - ingressClass:
         checkName: Ingress Class
-        ingressClassName: nginx
+        ingressClassName: traefik
         outcomes:
           - fail:
               message: |
-                IngressClass 'nginx' was not found in the cluster. The embedded cluster
-                installs ingress-nginx automatically — if this check fails, the
-                ingress-nginx extension may not have deployed correctly.
+                IngressClass 'traefik' was not found in the cluster. The embedded cluster
+                installs Traefik automatically — if this check fails, the Traefik
+                extension may not have deployed correctly.
           - pass:
-              message: "IngressClass 'nginx' is available."
+              message: "IngressClass 'traefik' is available."

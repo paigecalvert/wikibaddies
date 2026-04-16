@@ -15,18 +15,33 @@ spec:
         values:
           crds:
             enabled: true
-      - chart:
-          name: ingress-nginx
-          chartVersion: "4.11.3"
-        releaseName: ingress-nginx
-        namespace: ingress-nginx
-        values:
-          controller:
-            service:
-              type: NodePort
-              nodePorts:
-                http: "80"
-                https: "443"
+          image:
+            repository: 'repl{{ ReplicatedImageName (HelmValue ".image.repository") true }}'
+          webhook:
             image:
-              registry: 'repl{{ ReplicatedImageRegistry "registry.k8s.io" }}'
-              repository: 'repl{{ ReplicatedImageRepository "registry.k8s.io/ingress-nginx/controller" }}'
+              repository: 'repl{{ ReplicatedImageName (HelmValue ".webhook.image.repository") true }}'
+          cainjector:
+            image:
+              repository: 'repl{{ ReplicatedImageName (HelmValue ".cainjector.image.repository") true }}'
+          acmesolver:
+            image:
+              repository: 'repl{{ ReplicatedImageName (HelmValue ".acmesolver.image.repository") true }}'
+          startupapicheck:
+            image:
+              repository: 'repl{{ ReplicatedImageName (HelmValue ".startupapicheck.image.repository") true }}'
+      - chart:
+          name: traefik
+          chartVersion: "39.0.7"
+        releaseName: traefik
+        namespace: traefik
+        values:
+          service:
+            type: NodePort
+          ports:
+            web:
+              nodePort: 80
+            websecure:
+              nodePort: 443
+          image:
+            registry: 'repl{{ ReplicatedImageRegistry (HelmValue ".image.registry") }}'
+            repository: 'repl{{ ReplicatedImageRepository (HelmValue ".image.repository") true }}'

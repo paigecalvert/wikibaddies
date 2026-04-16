@@ -18,7 +18,7 @@ spec:
       type: ClusterIP
     ingress:
       enabled: true
-      className: nginx
+      className: traefik
       annotations:
         cert-manager.io/cluster-issuer: letsencrypt-http01
       hosts:
@@ -119,6 +119,11 @@ spec:
           iframely:
             enabled: true
             url: "http://iframely:8061"
+    - when: 'repl{{ IsAirgap }}'
+      recursiveMerge: true
+      values:
+        certManager:
+          createClusterIssuer: false
 
   # builder ensures all conditional images are included in air gap bundles
   builder:
