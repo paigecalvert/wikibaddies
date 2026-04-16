@@ -45,6 +45,10 @@ spec:
           type: text
           when: 'repl{{ ConfigOptionEquals "postgres_type" "external_postgres" }}'
           required: true
+          validation:
+            regex:
+              pattern: '^[a-zA-Z0-9][a-zA-Z0-9\-\.]+[a-zA-Z0-9]$'
+              message: Must be a valid hostname or IP address (e.g. postgres.example.com or 10.0.0.5).
         - name: external_postgres_port
           title: Port
           type: text
@@ -170,6 +174,10 @@ spec:
           type: text
           when: 'repl{{ ConfigOptionEquals "redis_type" "external_redis" }}'
           required: true
+          validation:
+            regex:
+              pattern: '^[a-zA-Z0-9][a-zA-Z0-9\-\.]+[a-zA-Z0-9]$'
+              message: Must be a valid hostname or IP address (e.g. redis.example.com or 10.0.0.5).
         - name: external_redis_port
           title: Port
           type: text

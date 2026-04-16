@@ -158,6 +158,31 @@ kubectl get pods -n outline -o jsonpath='{.items[*].spec.containers[*].image}' |
 kubectl get pods -n outline -o jsonpath='{.items[*].spec.initContainers[*].image}' | tr ' ' '\n' | sort -u
 ```
 
+## CMX (Compatibility Matrix) Test Environment
+
+CMX VMs are provisioned via the Replicated Vendor Portal. Each VM has an SSH/SCP endpoint using your GitHub username for auth.
+
+**SCP to VM** (copy local file to VM home directory):
+```bash
+scp <local-file> scp://paigecalvert@<ip>:<port>
+```
+
+**SCP from VM** (copy file off the VM):
+```bash
+scp scp://paigecalvert@<ip>:<port>/<remote-path> <local-destination>
+```
+
+**SSH into VM:**
+```bash
+ssh -p <port> -i ~/.ssh/id_ed25519 paigecalvert@<ip>
+```
+
+CMX authenticates using your GitHub SSH keys. If SSH fails, confirm `~/.ssh/id_ed25519` is registered on GitHub. Always run `scp`/`ssh` from your **local** terminal, not from inside an SSH session.
+
+Two DNS endpoints to expose per VM:
+- Port `30080` — EC install/upgrade wizard (ephemeral, only available during those processes)
+- Port `443` — Traefik ingress (Outline app)
+
 ## GCP Test Environment
 
 When creating a GCP VM for embedded cluster testing, use an instance with:

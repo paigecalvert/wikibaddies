@@ -1,0 +1,58 @@
+apiVersion: troubleshoot.sh/v1beta2
+kind: SupportBundle
+metadata:
+  name: outline
+spec:
+  collectors:
+    - clusterResources:
+        namespaces:
+          - outline
+          - traefik
+          - cert-manager
+
+  analyzers:
+    - deploymentStatus:
+        checkName: Outline Application
+        name: outline
+        namespace: outline
+        outcomes:
+          - fail:
+              when: "< 1"
+              message: |
+                The Outline deployment has no available replicas. Outline is not serving traffic.
+                Check pod logs for startup errors — common causes include misconfigured database
+                credentials, a failed database migration, or a missing secret.
+          - pass:
+              when: ">= 1"
+              message: Outline is running and has at least one available replica.
+
+    - textAnalyze:
+        checkName: Database and Cache Connectivity
+        fileName: cluster-resources/pods/logs/outline/**/*.log
+        regex: 'ECONNREFUSED|ENOTFOUND|password authentication failed|Redis error'
+        outcomes:
+          - fail:
+              when: "true"
+              message: |
+                Outline logs contain connection errors for PostgreSQL or Redis. This is the most
+                common cause of Outline failing to start or becoming unresponsive. Verify that
+                the database and Redis services are running, reachable from the outline namespace,
+                and that the configured credentials are correct.
+          - pass:
+              when: "false"
+              message: No database or cache connection errors found in Outline logs.
+
+    - deploymentStatus:
+        checkName: Traefik Ingress Controller
+        name: traefik
+        namespace: traefik
+        outcomes:
+          - fail:
+              when: "< 1"
+              message: |
+                The Traefik ingress controller has no available replicas. Outline may be running
+                but is not reachable from outside the cluster. Check the Traefik deployment in
+                the traefik namespace for errors.
+          - pass:
+              when: ">= 1"
+              message: Traefik ingress controller is running and available.
